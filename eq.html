@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>10-Band Graphic Equalizer | Client-Side Audio Suite</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --g-blue: #0b57d0; --g-blue-hover: #0842a0; --g-blue-bg: #e8f0fe; --g-blue-border: #aecbfa;
+      --g-green: #146c2e; --g-green-hover: #0f5223; --g-green-bg: #e6f4ea; --g-red: #c5221f; --g-red-bg: #fce8e6;
+      --radius-sm: 8px; --radius-md: 14px; --radius-lg: 20px; --radius-full: 9999px; --transition: all 0.25s ease;
+    }
+    [data-theme="light"] {
+      --bg-page: #f8f9fa; --bg-card-light: #ffffff; --bg-card-dark: #0e1117; --bg-card-tint: #f0f4f9; --bg-input: #f1f3f4;
+      --border-subtle: #e1e3e1; --border-card: #e0e0e0; --border-dark: #2c2c2c; --text-primary: #1f1f1f; --text-secondary: #444746; --text-muted: #747775; --text-inverse: #ffffff; --text-inverse-muted: #c4c7c5;
+    }
+    [data-theme="dark"] {
+      --bg-page: #0d1117; --bg-card-light: #161b22; --bg-card-dark: #010409; --bg-card-tint: #1c2128; --bg-input: #0d1117;
+      --border-subtle: #30363d; --border-card: #30363d; --border-dark: #21262d; --text-primary: #f0f6fc; --text-secondary: #8b949e; --text-muted: #6e7681; --text-inverse: #ffffff; --text-inverse-muted: #8b949e;
+      --g-blue-bg: rgba(26, 115, 232, 0.15); --g-blue-border: rgba(174, 203, 250, 0.3); --g-green-bg: rgba(20, 108, 46, 0.15);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg-page); color: var(--text-primary); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding-bottom: 60px; transition: background-color 0.3s ease; }
+    .container { width: 100%; max-width: 1050px; padding: 24px 20px; display: flex; flex-direction: column; gap: 28px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; }
+    .brand-dots { display: flex; gap: 6px; align-items: center; background: var(--bg-card-light); padding: 6px 14px; border-radius: var(--radius-full); border: 1px solid var(--border-card); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot-blue { background-color: #4285F4; } .dot-red { background-color: #EA4335; } .dot-yellow { background-color: #FBBC05; } .dot-green { background-color: #34A853; }
+    .suite-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+    .nav-link { color: var(--text-secondary); text-decoration: none; font-size: 0.88rem; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-full); transition: var(--transition); }
+    .nav-link:hover { color: var(--g-blue); background: var(--g-blue-bg); }
+    .nav-link.active { background: var(--g-blue); color: #ffffff; font-weight: 600; }
+    .theme-toggle-btn { background: var(--bg-card-light); border: 1px solid var(--border-card); color: var(--text-primary); padding: 6px 14px; border-radius: var(--radius-full); font-size: 0.88rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; margin-top: 10px; }
+    h1 { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.03em; }
+    .subtitle { color: var(--text-secondary); font-size: 1.05rem; max-width: 640px; }
+    .upload-card { background: var(--bg-card-dark); color: var(--text-inverse); border-radius: var(--radius-lg); padding: 44px 24px; text-align: center; cursor: pointer; transition: var(--transition); display: flex; flex-direction: column; align-items: center; gap: 18px; border: 1px solid var(--border-dark); }
+    .upload-card:hover { border-color: var(--g-blue); }
+    .upload-icon-wrapper { width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); color: var(--text-inverse); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+    .btn-browse { background: var(--g-blue); color: #ffffff; padding: 11px 28px; border-radius: var(--radius-full); font-weight: 600; border: none; cursor: pointer; }
+    .file-panel { background: var(--bg-card-light); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 24px; display: none; flex-direction: column; gap: 20px; }
+    .file-meta-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; }
+    .btn-play-pause { width: 50px; height: 50px; border-radius: 50%; background: var(--g-blue); color: #ffffff; border: none; font-size: 18px; cursor: pointer; }
+    .btn-play-pause.playing { background: var(--g-red); }
+    
+    /* 10 Band EQ Fader Grid */
+    .eq-card { background: var(--bg-card-light); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+    .eq-faders-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; align-items: center; justify-items: center; min-height: 240px; padding: 10px 0; }
+    @media (max-width: 640px) { .eq-faders-grid { grid-template-columns: repeat(5, 1fr); } }
+    .eq-fader-col { display: flex; flex-direction: column; align-items: center; gap: 10px; height: 100%; }
+    .eq-gain-val { font-size: 0.75rem; font-weight: 700; color: var(--g-blue); }
+    .eq-slider-vertical { -webkit-appearance: slider-vertical; width: 8px; height: 160px; outline: none; cursor: pointer; }
+    .eq-freq-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); }
+
+    .presets-card { background: var(--bg-card-light); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .presets-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .preset-btn { background: var(--bg-input); border: 1px solid var(--border-card); color: var(--text-secondary); padding: 8px 18px; border-radius: var(--radius-full); font-size: 0.88rem; cursor: pointer; }
+    .preset-btn.active { background: var(--g-blue); color: #ffffff; }
+
+    .export-card { background: var(--bg-card-dark); color: var(--text-inverse); border: 1px solid var(--border-dark); border-radius: var(--radius-lg); padding: 32px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 18px; }
+    .btn-export { background: var(--g-blue); color: #ffffff; font-size: 1rem; font-weight: 600; padding: 14px 36px; border-radius: var(--radius-full); border: none; cursor: pointer; }
+    .btn-download-file { background: var(--g-green); color: #ffffff; font-weight: 600; padding: 12px 28px; border-radius: var(--radius-full); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="top-bar">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="brand-dots">
+          <span class="dot dot-blue"></span><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
+        </div>
+        <nav class="suite-nav">
+          <a href="index.html" class="nav-link">🎧 8D Spatial</a>
+          <a href="pitch.html" class="nav-link">🎵 Pitch & Speed</a>
+          <a href="eq.html" class="nav-link active">🎚️ Graphic EQ</a>
+          <a href="trimmer.html" class="nav-link">✂️ Trimmer</a>
+          <a href="converter.html" class="nav-link">⚙️ Converter</a>
+        </nav>
+      </div>
+
+      <button class="theme-toggle-btn" id="themeToggleBtn">
+        <span id="themeIcon">🌙</span><span id="themeText">Dark Mode</span>
+      </button>
+    </div>
+
+    <header>
+      <h1>10-Band Graphic Equalizer</h1>
+      <p class="subtitle">Fine-tune 10 precise audio frequency bands from 31Hz bass sub to 16kHz high treble air.</p>
+    </header>
+
+    <div class="upload-card" id="dropZone">
+      <div class="upload-icon-wrapper">🎚️</div>
+      <div>
+        <p class="upload-text-main">Drag & drop your audio track here</p>
+        <p class="upload-text-sub">Supports MP3, WAV, FLAC, OGG, M4A & AAC</p>
+      </div>
+      <button class="btn-browse" onclick="document.getElementById('audioFileInput').click()">Browse File</button>
+      <input type="file" id="audioFileInput" accept="audio/*">
+    </div>
+
+    <div class="file-panel" id="filePanel">
+      <div class="file-meta-row">
+        <div>
+          <div class="file-name" id="fileNameDisplay">audio_track.mp3</div>
+          <div class="file-details" id="fileDetailsDisplay">0:00 • Stereo</div>
+        </div>
+        <button class="btn-reset" id="resetBtn">Change Track</button>
+      </div>
+      <div class="player-controls">
+        <button class="btn-play-pause" id="playPauseBtn">▶</button>
+        <div style="flex:1;">
+          <input type="range" class="range-input" id="timelineScrubber" min="0" max="100" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="presets-card">
+      <h3>✨ Equalizer Presets</h3>
+      <div class="presets-grid">
+        <button class="preset-btn active" data-preset="flat">🎵 Flat (Reset)</button>
+        <button class="preset-btn" data-preset="bass">🔊 Bass Booster</button>
+        <button class="preset-btn" data-preset="treble">✨ Treble Enhancer</button>
+        <button class="preset-btn" data-preset="vocal">🎙️ Vocal Clarity</button>
+        <button class="preset-btn" data-preset="acoustic">🎸 Acoustic Ambiance</button>
+      </div>
+    </div>
+
+    <div class="eq-card">
+      <h3>🎚️ 10-Band Frequency Sliders (-12dB to +12dB)</h3>
+      <div class="eq-faders-grid" id="fadersContainer">
+        <!-- Faders generated via JS -->
+      </div>
+    </div>
+
+    <div class="export-card">
+      <h2>Export Equalized Track</h2>
+      <button class="btn-export" id="exportBtn" disabled>⚡ Export Audio (WAV)</button>
+      <div class="download-success-box" id="downloadSuccessBox" style="display:none;">
+        <a href="#" class="btn-download-file" id="downloadLink" download="EQ_Track.wav">⬇ Download WAV File</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Theme Switcher
+    const htmlElement = document.documentElement;
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const savedTheme = localStorage.getItem('app-theme') || 'light';
+    setTheme(savedTheme);
+
+    themeToggleBtn.addEventListener('click', () => {
+      setTheme(htmlElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+    function setTheme(m) {
+      htmlElement.setAttribute('data-theme', m);
+      localStorage.setItem('app-theme', m);
+      document.getElementById('themeIcon').textContent = m === 'dark' ? '☀️' : '🌙';
+      document.getElementById('themeText').textContent = m === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
+
+    // 10 Frequencies
+    const frequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+    const freqLabels = ['31Hz', '62Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz'];
+    let eqFilters = [];
+    let audioContext = null, audioBuffer = null, sourceNode = null;
+    let isPlaying = false;
+
+    // Render EQ Faders
+    const container = document.getElementById('fadersContainer');
+    frequencies.forEach((freq, idx) => {
+      const col = document.createElement('div');
+      col.className = 'eq-fader-col';
+      col.innerHTML = `
+        <span class="eq-gain-val" id="gainVal_${idx}">0dB</span>
+        <input type="range" class="eq-slider-vertical" id="slider_${idx}" min="-12" max="12" step="0.5" value="0">
+        <span class="eq-freq-label">${freqLabels[idx]}</span>
+      `;
+      container.appendChild(col);
+
+      col.querySelector('input').addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        document.getElementById(`gainVal_${idx}`).textContent = `${val > 0 ? '+' : ''}${val}dB`;
+        if (eqFilters[idx]) eqFilters[idx].gain.value = val;
+      });
+    });
+
+    // Presets
+    const presets = {
+      flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      bass: [6, 5, 4, 2, 0, 0, 0, 0, 0, 0],
+      treble: [0, 0, 0, 0, 0, 1, 3, 5, 6, 7],
+      vocal: [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1],
+      acoustic: [3, 2, 1, 0, 1, 2, 3, 4, 3, 2]
+    };
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const vals = presets[btn.dataset.preset];
+        vals.forEach((v, i) => {
+          document.getElementById(`slider_${i}`).value = v;
+          document.getElementById(`gainVal_${i}`).textContent = `${v > 0 ? '+' : ''}${v}dB`;
+          if (eqFilters[i]) eqFilters[i].gain.value = v;
+        });
+      });
+    });
+
+    // Audio File Handling
+    document.getElementById('audioFileInput').addEventListener('change', async (e) => {
+      if (!e.target.files.length) return;
+      const file = e.target.files[0];
+      document.getElementById('fileNameDisplay').textContent = file.name;
+      
+      const arrayBuffer = await file.arrayBuffer();
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      document.getElementById('filePanel').style.display = 'flex';
+      document.getElementById('exportBtn').disabled = false;
+    });
+
+    function setupEqGraph(ctx) {
+      eqFilters = frequencies.map((freq, idx) => {
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = freq;
+        filter.Q.value = 1.4;
+        filter.gain.value = parseFloat(document.getElementById(`slider_${idx}`).value);
+        return filter;
+      });
+
+      for (let i = 0; i < eqFilters.length - 1; i++) {
+        eqFilters[i].connect(eqFilters[i + 1]);
+      }
+    }
+
+    document.getElementById('playPauseBtn').addEventListener('click', () => {
+      if (!audioBuffer) return;
+      if (isPlaying) {
+        if (sourceNode) sourceNode.stop();
+        isPlaying = false;
+        document.getElementById('playPauseBtn').textContent = '▶';
+      } else {
+        setupEqGraph(audioContext);
+        sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        
+        sourceNode.connect(eqFilters[0]);
+        eqFilters[eqFilters.length - 1].connect(audioContext.destination);
+
+        sourceNode.start(0);
+        isPlaying = true;
+        document.getElementById('playPauseBtn').textContent = '❚❚';
+      }
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', async () => {
+      if (!audioBuffer) return;
+      const offlineCtx = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
+      
+      const offlineFilters = frequencies.map((freq, idx) => {
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = freq;
+        filter.Q.value = 1.4;
+        filter.gain.value = parseFloat(document.getElementById(`slider_${idx}`).value);
+        return filter;
+      });
+
+      for (let i = 0; i < offlineFilters.length - 1; i++) {
+        offlineFilters[i].connect(offlineFilters[i + 1]);
+      }
+
+      const offlineSource = offlineCtx.createBufferSource();
+      offlineSource.buffer = audioBuffer;
+      offlineSource.connect(offlineFilters[0]);
+      offlineFilters[offlineFilters.length - 1].connect(offlineCtx.destination);
+      offlineSource.start(0);
+
+      const rendered = await offlineCtx.startRendering();
+      const blob = bufferToWav(rendered);
+      document.getElementById('downloadLink').href = URL.createObjectURL(blob);
+      document.getElementById('downloadSuccessBox').style.display = 'block';
+    });
+
+    function bufferToWav(buffer) {
+      const numOfChan = buffer.numberOfChannels, length = buffer.length * numOfChan * 2 + 44, out = new DataView(new ArrayBuffer(length)), channels = [];
+      let sample, offset = 0, pos = 0;
+      function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+      function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+      setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+      setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+      setUint32(buffer.sampleRate); setUint32(buffer.sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16);
+      setUint32(0x61746164); setUint32(length - pos - 4);
+      for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+      while (pos < length) {
+        for (let i = 0; i < numOfChan; i++) {
+          sample = Math.max(-1, Math.min(1, channels[i][offset]));
+          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+          out.setInt16(pos, sample, true); pos += 2;
+        }
+        offset++;
+      }
+      return new Blob([out], { type: "audio/wav" });
+    }
+  </script>
+</body>
+</html>

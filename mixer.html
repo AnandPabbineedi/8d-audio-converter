@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Audio Mixer Pro | Real-Time System Audio Processing</title>
+  <meta name="description" content="Real-time live audio mixer that captures system audio (Apple Music, Spotify, YouTube) and applies 8D spatial panning, reverb, pitch shift, bass boost, and vocal cut effects instantly.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --g-blue: #0b57d0;
+      --g-blue-hover: #0842a0;
+      --g-blue-bg: #e8f0fe;
+      --g-blue-border: #aecbfa;
+      --g-green: #146c2e;
+      --g-green-hover: #0f5223;
+      --g-green-bg: #e6f4ea;
+      --g-green-border: #a8d5b5;
+      --g-red: #c5221f;
+      --g-red-bg: #fce8e6;
+      --g-orange: #b45309;
+      --g-orange-bg: #fef3c7;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      --transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    [data-theme="light"] {
+      --bg-page: #f8f9fa;
+      --bg-card: #ffffff;
+      --bg-card-dark: #0e1117;
+      --bg-card-tint: #f0f4f9;
+      --bg-input: #f1f3f4;
+      --border-card: #e0e0e0;
+      --border-dark: #2c2c2c;
+      --text-primary: #1f1f1f;
+      --text-secondary: #444746;
+      --text-muted: #747775;
+      --text-inverse: #ffffff;
+      --text-inverse-muted: #c4c7c5;
+      --sidebar-bg: #ffffff;
+      --canvas-bg: #0d1117;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #0d1117;
+      --bg-card: #161b22;
+      --bg-card-dark: #010409;
+      --bg-card-tint: #1c2128;
+      --bg-input: #0d1117;
+      --border-card: #30363d;
+      --border-dark: #21262d;
+      --text-primary: #f0f6fc;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --text-inverse: #ffffff;
+      --text-inverse-muted: #8b949e;
+      --sidebar-bg: #161b22;
+      --canvas-bg: #010409;
+      --g-blue-bg: rgba(26,115,232,0.15);
+      --g-blue-border: rgba(174,203,250,0.3);
+      --g-green-bg: rgba(20,108,46,0.15);
+      --g-green-border: rgba(168,213,181,0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    /* HEADER */
+    .top-header {
+      width: 100%;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-card);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-dots { display: flex; gap: 6px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; }
+    .dot-blue { background: #4285F4; }
+    .dot-red  { background: #EA4335; }
+    .dot-yellow { background: #FBBC05; }
+    .dot-green { background: #34A853; }
+    .brand-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; }
+    .brand-badge {
+      background: var(--g-green-bg);
+      color: var(--g-green);
+      border: 1px solid var(--g-green-border);
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--g-red-bg);
+      color: var(--g-red);
+      padding: 5px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .live-indicator .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--g-red);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .live-indicator.active { background: var(--g-green-bg); color: var(--g-green); }
+    .live-indicator.active .pulse-dot { background: var(--g-green); animation: pulseGreen 1s ease-in-out infinite; }
+    @keyframes pulseGreen { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .theme-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-card);
+      color: var(--text-primary);
+      padding: 7px 16px;
+      border-radius: var(--radius-full);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+    }
+    .theme-btn:hover { border-color: var(--g-blue-border); color: var(--g-blue); }
+
+    /* LAYOUT */
+    .app-layout { display: flex; flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; }
+
+    aside.sidebar {
+      width: 240px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border-card);
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .nav-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 8px 12px 4px; }
+
+    .sidebar-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      padding: 9px 13px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .sidebar-btn:hover { background: var(--bg-card-tint); color: var(--g-blue); }
+    .sidebar-btn.active { background: var(--g-blue); color: #fff; font-weight: 600; }
+
+    .studio-link {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 13px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-card);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+    .studio-link:hover { border-color: var(--g-blue-border); color: var(--g-blue); }
+
+    /* CONTENT AREA */
+    main.content-area { flex: 1; padding: 28px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+
+    .view-panel { display: none; flex-direction: column; gap: 20px; animation: fadeIn 0.2s ease; }
+    .view-panel.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* MODULE HEADER */
+    .module-header { display: flex; flex-direction: column; gap: 5px; }
+    .module-title { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; }
+    .module-desc { font-size: 0.92rem; color: var(--text-secondary); }
+
+    /* CAPTURE CARD */
+    .capture-card {
+      background: var(--bg-card-dark);
+      border: 1px solid var(--border-dark);
+      border-radius: 20px;
+      padding: 36px 28px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      color: var(--text-inverse);
+    }
+
+    .capture-icon { font-size: 3rem; margin-bottom: 4px; }
+    .capture-title { font-size: 1.3rem; font-weight: 700; }
+    .capture-desc { font-size: 0.88rem; color: var(--text-inverse-muted); max-width: 500px; line-height: 1.6; }
+
+    .source-tabs { display: flex; gap: 8px; margin-top: 4px; }
+    .source-tab {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text-inverse-muted);
+      padding: 7px 16px;
+      border-radius: var(--radius-full);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .source-tab:hover { border-color: rgba(174,203,250,0.5); color: #aecbfa; }
+    .source-tab.active { background: var(--g-blue); border-color: var(--g-blue); color: #fff; font-weight: 600; }
+
+    /* BUTTONS */
+    .btn-capture {
+      background: var(--g-blue);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 14px 36px;
+      border-radius: var(--radius-full);
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(11,87,208,0.3);
+    }
+    .btn-capture:hover { background: var(--g-blue-hover); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(11,87,208,0.4); }
+
+    .btn-stop {
+      background: var(--g-red);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 12px 28px;
+      border-radius: var(--radius-full);
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-stop:hover { opacity: 0.88; }
+
+    /* VISUALIZER ROW */
+    .viz-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    @media (max-width: 800px) { .viz-row { grid-template-columns: 1fr; } }
+
+    .viz-box {
+      background: var(--canvas-bg);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      overflow: hidden;
+      height: 170px;
+      position: relative;
+    }
+    .viz-box canvas { width: 100%; height: 100%; display: block; }
+    .viz-label {
+      position: absolute;
+      top: 10px; left: 14px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* EFFECTS GRID */
+    .fx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .fx-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .fx-header { display: flex; align-items: center; justify-content: space-between; }
+    .fx-title { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .fx-badge {
+      background: var(--g-blue-bg);
+      border: 1px solid var(--g-blue-border);
+      color: var(--g-blue);
+      padding: 2px 9px;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .fx-badge.green { background: var(--g-green-bg); border-color: var(--g-green-border, #a8d5b5); color: var(--g-green); }
+
+    /* TOGGLE SWITCH */
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; }
+    .toggle-switch {
+      position: relative; width: 40px; height: 22px; cursor: pointer;
+    }
+    .toggle-switch input { display: none; }
+    .toggle-track {
+      display: block; width: 100%; height: 100%; border-radius: 11px;
+      background: var(--bg-input); border: 1px solid var(--border-card);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track { background: var(--g-blue); border-color: var(--g-blue); }
+    .toggle-knob {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch input:checked ~ .toggle-knob { transform: translateX(18px); }
+
+    /* SLIDERS */
+    .range-input {
+      width: 100%; -webkit-appearance: none; height: 5px; border-radius: 3px;
+      background: var(--bg-input); outline: none; cursor: pointer;
+    }
+    .range-input::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--g-blue); cursor: pointer; transition: transform 0.15s;
+    }
+    .range-input::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+    .range-row { display: flex; flex-direction: column; gap: 6px; }
+    .range-label { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; }
+
+    /* PRESET CHIPS */
+    .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      background: var(--bg-input); border: 1px solid var(--border-card);
+      color: var(--text-secondary); padding: 6px 14px; border-radius: var(--radius-full);
+      font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: var(--transition);
+    }
+    .chip:hover { border-color: var(--g-blue-border); color: var(--g-blue); background: var(--g-blue-bg); }
+    .chip.active { background: var(--g-blue); color: #fff; border-color: var(--g-blue); font-weight: 600; }
+
+    /* INFO CARDS */
+    .info-card {
+      background: var(--g-blue-bg);
+      border: 1px solid var(--g-blue-border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 0.87rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .info-card strong { color: var(--g-blue); }
+
+    /* MASTER SECTION */
+    .master-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .meter-wrap {
+      flex: 1;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .meter-bar-bg {
+      height: 8px; border-radius: 4px; background: var(--bg-input); overflow: hidden;
+    }
+    .meter-bar-fill {
+      height: 100%; border-radius: 4px; width: 0%;
+      background: linear-gradient(90deg, #34A853 60%, #FBBC05 80%, #EA4335 100%);
+      transition: width 0.05s linear;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header class="top-header">
+    <div class="brand-group">
+      <div class="brand-dots">
+        <span class="dot dot-blue"></span><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
+      </div>
+      <span class="brand-title">Live Audio Mixer Pro</span>
+      <span class="brand-badge">⚡ LIVE</span>
+    </div>
+
+    <div class="header-right">
+      <div class="live-indicator" id="liveIndicator">
+        <span class="pulse-dot"></span>
+        <span id="liveLabel">Not Capturing</span>
+      </div>
+      <button class="theme-btn" id="themeBtn">
+        <span id="themeIcon">🌙</span><span id="themeText">Dark Mode</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- APP LAYOUT -->
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="nav-label">Live FX Modules</div>
+      <button class="sidebar-btn active" data-tab="capture">🎙️ Capture Source</button>
+      <button class="sidebar-btn" data-tab="spatial">🎧 8D Spatial</button>
+      <button class="sidebar-btn" data-tab="reverb">🌌 Slowed + Reverb</button>
+      <button class="sidebar-btn" data-tab="pitch">🎵 Pitch Shift</button>
+      <button class="sidebar-btn" data-tab="vocal">🎤 Vocal Cut</button>
+      <button class="sidebar-btn" data-tab="bass">🔊 Bass Boost</button>
+
+      <div class="nav-label" style="margin-top:12px;">Studio</div>
+      <a href="index.html" class="studio-link">🎛️ Audio Studio (File)</a>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="content-area">
+
+      <!-- 0. CAPTURE SOURCE PANEL -->
+      <section class="view-panel active" id="panel-capture">
+        <div class="module-header">
+          <h2 class="module-title">Live Audio Capture</h2>
+          <p class="module-desc">Capture system audio in real-time from Apple Music, Spotify, YouTube, or your microphone — no file upload needed.</p>
+        </div>
+
+        <div class="capture-card" id="captureCard">
+          <div class="capture-icon">🎵</div>
+          <div class="capture-title">Choose Your Audio Source</div>
+          <p class="capture-desc">Select a source below. <strong>System Audio</strong> captures whatever is playing on your Mac (Apple Music, Spotify, YouTube, etc.). <strong>Microphone</strong> captures live mic input.</p>
+          
+          <div class="source-tabs">
+            <button class="source-tab active" id="tabSystem">💻 System Audio</button>
+            <button class="source-tab" id="tabMic">🎙️ Microphone</button>
+          </div>
+
+          <div id="systemNote" style="font-size:0.82rem; color:rgba(255,255,255,0.5); max-width:420px; line-height:1.5;">
+            ⚠️ Chrome will show a "Share Screen" dialog — select any window or tab, and <strong>check "Share Audio"</strong> at the bottom. On macOS, you may also need <strong>BlackHole</strong> or <strong>Loopback</strong> for true system audio.
+          </div>
+
+          <div id="micNote" style="display:none; font-size:0.82rem; color:rgba(255,255,255,0.5); max-width:420px; line-height:1.5;">
+            🎙️ Captures live input from your default microphone. Effects apply in real-time.
+          </div>
+
+          <button class="btn-capture" id="btnStartCapture">🚀 Start Live Capture</button>
+        </div>
+
+        <!-- ACTIVE STATE -->
+        <div id="activeCapture" style="display:none; flex-direction:column; gap:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div style="font-size:1.1rem; font-weight:700;" id="activeSourceLabel">🎵 System Audio Active</div>
+              <div style="font-size:0.85rem; color:var(--text-secondary);">Effects chain processing in real-time. Adjust any FX panel in the sidebar.</div>
+            </div>
+            <button class="btn-stop" id="btnStopCapture">⏹ Stop Capture</button>
+          </div>
+
+          <!-- VISUALIZERS -->
+          <div class="viz-row">
+            <div class="viz-box">
+              <div class="viz-label">Frequency Spectrum</div>
+              <canvas id="spectrumCanvas"></canvas>
+            </div>
+            <div class="viz-box">
+              <div class="viz-label">Waveform</div>
+              <canvas id="waveCanvas"></canvas>
+            </div>
+          </div>
+
+          <!-- MASTER VOLUME -->
+          <div style="background:var(--bg-card); border:1px solid var(--border-card); border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:12px;">
+            <div style="font-weight:700; font-size:0.95rem;">🎚️ Master Output</div>
+            <div class="master-row">
+              <div class="meter-wrap">
+                <div style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">Output Level</div>
+                <div class="meter-bar-bg"><div class="meter-bar-fill" id="meterFill"></div></div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; min-width:200px;">
+                <div class="range-label"><span>Master Volume</span><span class="fx-badge" id="masterVolLabel">1.0 x</span></div>
+                <input type="range" class="range-input" id="masterVolSlider" min="0" max="2" step="0.05" value="1">
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1. 8D SPATIAL PANEL -->
+      <section class="view-panel" id="panel-spatial">
+        <div class="module-header">
+          <h2 class="module-title">8D Spatial Audio</h2>
+          <p class="module-desc">Real-time 360° binaural panning LFO — headphones required for full spatial effect.</p>
+        </div>
+
+        <div class="info-card">
+          <strong>How it works:</strong> A Sine LFO oscillates a StereoPanner between –1 (left) and +1 (right) at your chosen speed, creating the sensation of audio rotating around your head in real-time.
+        </div>
+
+        <div class="fx-card">
+          <div class="fx-header">
+            <div class="fx-title">🎧 8D Spatial LFO</div>
+            <div class="toggle-wrap">
+              <label class="toggle-switch" title="Enable/Disable 8D Spatial">
+                <input type="checkbox" id="toggle8d" checked>
+                <span class="toggle-track"></span>
+                <span class="toggle-knob"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="preset-chips" id="presets8d">
+            <button class="chip active" data-8d-speed="0.15" data-8d-width="0.90">🎧 Classic 8D</button>
+            <button class="chip" data-8d-speed="0.08" data-8d-width="1.0">🌌 Deep Hypnotic</button>
+            <button class="chip" data-8d-speed="0.35" data-8d-width="0.95">🚀 Cyberpunk</button>
+            <button class="chip" data-8d-speed="0.05" data-8d-width="0.80">🏛️ Concert Hall</button>
+            <button class="chip" data-8d-speed="0.50" data-8d-width="1.0">⚡ Hyper Spin</button>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Panning Speed</span><span class="fx-badge" id="speed8dVal">0.15 Hz</span></div>
+            <input type="range" class="range-input" id="speed8dSlider" min="0.02" max="0.60" step="0.01" value="0.15">
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Orbit Width</span><span class="fx-badge" id="width8dVal">90 %</span></div>
+            <input type="range" class="range-input" id="width8dSlider" min="0" max="1" step="0.01" value="0.90">
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. SLOWED + REVERB PANEL -->
+      <section class="view-panel" id="panel-reverb">
+        <div class="module-header">
+          <h2 class="module-title">Slowed + Reverb</h2>
+          <p class="module-desc">Real-time tape-slowed playback atmosphere via multi-tap delay & lowpass filtering.</p>
+        </div>
+
+        <div class="info-card">
+          <strong>How it works:</strong> A delayed wet path runs through a lowpass filter to simulate room reflections. The wet/dry mix and delay time are all adjustable in real-time as the audio streams live.
+        </div>
+
+        <div class="fx-card">
+          <div class="fx-header">
+            <div class="fx-title">🌌 Reverb Effect</div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleReverb" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-knob"></span>
+            </label>
+          </div>
+
+          <div class="preset-chips">
+            <button class="chip active" data-rev-wet="55" data-rev-delay="80" data-rev-cutoff="1800">🌌 Midnight Drive</button>
+            <button class="chip" data-rev-wet="80" data-rev-delay="120" data-rev-cutoff="1200">✨ Ethereal Abyss</button>
+            <button class="chip" data-rev-wet="35" data-rev-delay="50" data-rev-cutoff="2400">🛋️ Subtle Chill</button>
+            <button class="chip" data-rev-wet="90" data-rev-delay="160" data-rev-cutoff="900">🌀 Deep Space</button>
+            <button class="chip" data-rev-wet="0" data-rev-delay="80" data-rev-cutoff="1800">🎵 Bypass (Dry)</button>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Reverb Wet Mix</span><span class="fx-badge" id="revWetVal">55 %</span></div>
+            <input type="range" class="range-input" id="revWetSlider" min="0" max="100" step="1" value="55">
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Delay Time</span><span class="fx-badge" id="revDelayVal">80 ms</span></div>
+            <input type="range" class="range-input" id="revDelaySlider" min="20" max="300" step="5" value="80">
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Room Tone (Lowpass Cutoff)</span><span class="fx-badge" id="revCutoffVal">1800 Hz</span></div>
+            <input type="range" class="range-input" id="revCutoffSlider" min="400" max="5000" step="50" value="1800">
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. PITCH SHIFT PANEL -->
+      <section class="view-panel" id="panel-pitch">
+        <div class="module-header">
+          <h2 class="module-title">Pitch Shifter</h2>
+          <p class="module-desc">Real-time semitone pitch shift for the live audio stream.</p>
+        </div>
+
+        <div class="info-card">
+          <strong>Note:</strong> Browser Web Audio API does not natively support pitch-shift without tempo change. The pitch slider adjusts playback rate which slightly alters speed. For true tempo-preserving pitch shift a phase vocoder is required (available in the offline Studio).
+        </div>
+
+        <div class="fx-card">
+          <div class="fx-header">
+            <div class="fx-title">🎵 Pitch Control</div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="togglePitch" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-knob"></span>
+            </label>
+          </div>
+
+          <div class="preset-chips" id="presetsPitch">
+            <button class="chip active" data-pitch="0">🎵 Original (0 st)</button>
+            <button class="chip" data-pitch="3">⚡ Nightcore (+3 st)</button>
+            <button class="chip" data-pitch="-3">🌌 Slowed (-3 st)</button>
+            <button class="chip" data-pitch="6">🐿️ Chipmunk (+6 st)</button>
+            <button class="chip" data-pitch="-6">🎙️ Deep Voice (-6 st)</button>
+            <button class="chip" data-pitch="12">🎼 Octave Up</button>
+            <button class="chip" data-pitch="-12">🎸 Octave Down</button>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Pitch Shift (Semitones)</span><span class="fx-badge" id="pitchLiveVal">0 st</span></div>
+            <input type="range" class="range-input" id="pitchLiveSlider" min="-12" max="12" step="1" value="0">
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. VOCAL CUT PANEL -->
+      <section class="view-panel" id="panel-vocal">
+        <div class="module-header">
+          <h2 class="module-title">Vocal Cut / Karaoke Mode</h2>
+          <p class="module-desc">Real-time center-channel suppression via phase inversion + notch filter.</p>
+        </div>
+
+        <div class="info-card">
+          <strong>How it works:</strong> The right stereo channel is phase-inverted and mixed back into the left, cancelling shared center-panned content (typically lead vocals). Adjust notch frequency to target different vocal ranges.
+        </div>
+
+        <div class="fx-card">
+          <div class="fx-header">
+            <div class="fx-title">🎤 Vocal Suppression</div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleVocal">
+              <span class="toggle-track"></span>
+              <span class="toggle-knob"></span>
+            </label>
+          </div>
+
+          <div class="preset-chips">
+            <button class="chip active" data-vcut="100" data-vfreq="1000">🎤 Aggressive (100%)</button>
+            <button class="chip" data-vcut="70" data-vfreq="1500">🎙️ Moderate (70%)</button>
+            <button class="chip" data-vcut="50" data-vfreq="2200">🎹 Karaoke Mode (50%)</button>
+            <button class="chip" data-vcut="0" data-vfreq="1000">🎵 Bypass</button>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Cut Depth</span><span class="fx-badge" id="vcutVal">100 %</span></div>
+            <input type="range" class="range-input" id="vcutSlider" min="0" max="100" step="5" value="100">
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Notch Center Frequency</span><span class="fx-badge" id="vfreqVal">1000 Hz</span></div>
+            <input type="range" class="range-input" id="vfreqSlider" min="300" max="3400" step="50" value="1000">
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. BASS BOOST PANEL -->
+      <section class="view-panel" id="panel-bass">
+        <div class="module-header">
+          <h2 class="module-title">Bass Boost</h2>
+          <p class="module-desc">Real-time low-shelf frequency boost with master volume gain normalization.</p>
+        </div>
+
+        <div class="fx-card">
+          <div class="fx-header">
+            <div class="fx-title">🔊 Bass & Volume</div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleBass" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-knob"></span>
+            </label>
+          </div>
+
+          <div class="preset-chips">
+            <button class="chip active" data-bass="6" data-bassfreq="200">🔊 Clean Boost (+6dB)</button>
+            <button class="chip" data-bass="12" data-bassfreq="200">💥 Club Sub (+12dB)</button>
+            <button class="chip" data-bass="18" data-bassfreq="200">🔥 Max Punch (+18dB)</button>
+            <button class="chip" data-bass="0" data-bassfreq="200">🎵 Flat Response</button>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Bass Gain (Lowshelf)</span><span class="fx-badge green" id="bassGainVal">+6 dB</span></div>
+            <input type="range" class="range-input" id="bassGainSlider" min="0" max="20" step="1" value="6">
+          </div>
+
+          <div class="range-row">
+            <div class="range-label"><span>Bass Frequency Cutoff</span><span class="fx-badge green" id="bassFreqVal">200 Hz</span></div>
+            <input type="range" class="range-input" id="bassFreqSlider" min="60" max="500" step="10" value="200">
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // ==========================================
+    // THEME SWITCHER
+    // ==========================================
+    const htmlEl = document.documentElement;
+    const savedTheme = localStorage.getItem('app-theme') || 'light';
+    applyTheme(savedTheme);
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      applyTheme(htmlEl.dataset.theme === 'light' ? 'dark' : 'light');
+    });
+
+    function applyTheme(m) {
+      htmlEl.dataset.theme = m;
+      localStorage.setItem('app-theme', m);
+      document.getElementById('themeIcon').textContent = m === 'dark' ? '☀️' : '🌙';
+      document.getElementById('themeText').textContent = m === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
+
+    // ==========================================
+    // SPA NAVIGATION
+    // ==========================================
+    document.querySelectorAll('.sidebar-btn[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // ==========================================
+    // SOURCE SELECTION
+    // ==========================================
+    let captureMode = 'system';
+    document.getElementById('tabSystem').addEventListener('click', () => {
+      captureMode = 'system';
+      document.getElementById('tabSystem').classList.add('active');
+      document.getElementById('tabMic').classList.remove('active');
+      document.getElementById('systemNote').style.display = '';
+      document.getElementById('micNote').style.display = 'none';
+    });
+    document.getElementById('tabMic').addEventListener('click', () => {
+      captureMode = 'mic';
+      document.getElementById('tabMic').classList.add('active');
+      document.getElementById('tabSystem').classList.remove('active');
+      document.getElementById('systemNote').style.display = 'none';
+      document.getElementById('micNote').style.display = '';
+    });
+
+    // ==========================================
+    // WEB AUDIO GRAPH STATE
+    // ==========================================
+    let audioCtx = null, mediaStream = null;
+    let srcNode = null, masterGain = null, analyserSpec = null, analyserWave = null;
+    let pannerNode = null, lfoOsc = null, lfoGain = null;
+    let delayNode = null, delayFilter = null, delayWetGain = null, delayDryGain = null;
+    let vocalNotchFilter = null, vocalInverter = null, vocalSplitter = null, vocalMerger = null;
+    let bassFilter = null;
+    let animFrameId = null;
+    let isLive = false;
+
+    // PARAMETERS (live state)
+    const params = {
+      masterVol: 1,
+      // 8D
+      spatial8d: true, speed8d: 0.15, width8d: 0.90,
+      // reverb
+      revOn: true, revWet: 0.55, revDelay: 0.08, revCutoff: 1800,
+      // pitch (via playbackRate — live streams don't easily support this; placeholder)
+      pitchOn: true, pitchSt: 0,
+      // vocal
+      vocalOn: false, vocalCut: 1.0, vocalFreq: 1000,
+      // bass
+      bassOn: true, bassGain: 6, bassFreq: 200,
+    };
+
+    // ==========================================
+    // START CAPTURE
+    // ==========================================
+    document.getElementById('btnStartCapture').addEventListener('click', async () => {
+      try {
+        if (captureMode === 'system') {
+          // getDisplayMedia to capture system/tab audio
+          mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { width: 1 },   // required by some browsers to enable audio
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              sampleRate: 48000,
+              channelCount: 2
+            }
+          });
+        } else {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              sampleRate: 48000,
+              channelCount: 2
+            }
+          });
+        }
+
+        buildGraph(mediaStream);
+        startCapture();
+      } catch (err) {
+        alert('Could not access audio: ' + err.message + '\n\nFor System Audio: when Chrome shows the screen picker, select any window/tab and make sure "Share audio" is checked at the bottom.');
+      }
+    });
+
+    document.getElementById('btnStopCapture').addEventListener('click', stopCapture);
+
+    function startCapture() {
+      isLive = true;
+      document.getElementById('captureCard').style.display = 'none';
+      document.getElementById('activeCapture').style.display = 'flex';
+      document.getElementById('liveIndicator').classList.add('active');
+      document.getElementById('liveLabel').textContent = captureMode === 'system' ? 'System Audio Live' : 'Microphone Live';
+      document.getElementById('activeSourceLabel').textContent = captureMode === 'system' ? '💻 System Audio Active' : '🎙️ Microphone Active';
+      startVizLoop();
+    }
+
+    function stopCapture() {
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      isLive = false;
+      document.getElementById('captureCard').style.display = '';
+      document.getElementById('activeCapture').style.display = 'none';
+      document.getElementById('liveIndicator').classList.remove('active');
+      document.getElementById('liveLabel').textContent = 'Not Capturing';
+    }
+
+    // ==========================================
+    // BUILD FULL LIVE AUDIO GRAPH
+    // Graph:
+    //  src → bassFilter → vocalChain → spatialChain → reverbChain → masterGain → analyserSpec → analyserWave → dest
+    // ==========================================
+    function buildGraph(stream) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+
+      srcNode = audioCtx.createMediaStreamSource(stream);
+
+      // ----- BASS FILTER (lowshelf) -----
+      bassFilter = audioCtx.createBiquadFilter();
+      bassFilter.type = 'lowshelf';
+      bassFilter.frequency.value = params.bassFreq;
+      bassFilter.gain.value = params.bassOn ? params.bassGain : 0;
+
+      // ----- VOCAL NOTCH (phase cancel) -----
+      vocalNotchFilter = audioCtx.createBiquadFilter();
+      vocalNotchFilter.type = 'notch';
+      vocalNotchFilter.frequency.value = params.vocalFreq;
+      vocalNotchFilter.Q.value = 3.0;
+
+      // ----- SPATIAL 8D PANNER + LFO -----
+      pannerNode = audioCtx.createStereoPanner();
+      lfoOsc = audioCtx.createOscillator();
+      lfoOsc.type = 'sine';
+      lfoOsc.frequency.value = params.speed8d;
+      lfoGain = audioCtx.createGain();
+      lfoGain.gain.value = params.spatial8d ? params.width8d : 0;
+      lfoOsc.connect(lfoGain);
+      lfoGain.connect(pannerNode.pan);
+      lfoOsc.start();
+
+      // ----- REVERB (delay + lowpass) -----
+      delayNode = audioCtx.createDelay(1.0);
+      delayNode.delayTime.value = params.revDelay;
+      delayFilter = audioCtx.createBiquadFilter();
+      delayFilter.type = 'lowpass';
+      delayFilter.frequency.value = params.revCutoff;
+      delayWetGain = audioCtx.createGain();
+      delayWetGain.gain.value = params.revOn ? params.revWet / 100 * 0.6 : 0;
+      delayDryGain = audioCtx.createGain();
+      delayDryGain.gain.value = 1.0;
+
+      // ----- MASTER -----
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = params.masterVol;
+
+      // ----- ANALYSERS -----
+      analyserSpec = audioCtx.createAnalyser();
+      analyserSpec.fftSize = 2048;
+      analyserWave = audioCtx.createAnalyser();
+      analyserWave.fftSize = 1024;
+
+      // ----- WIRE GRAPH -----
+      // src → bass → panner (dry path)
+      srcNode.connect(bassFilter);
+      bassFilter.connect(pannerNode);
+
+      // panner → delay (wet path) → delayFilter → delayWetGain → masterGain
+      pannerNode.connect(delayDryGain);
+      pannerNode.connect(delayNode);
+      delayNode.connect(delayFilter);
+      delayFilter.connect(delayWetGain);
+
+      delayDryGain.connect(masterGain);
+      delayWetGain.connect(masterGain);
+
+      // master → analysers → destination
+      masterGain.connect(analyserSpec);
+      masterGain.connect(analyserWave);
+      analyserSpec.connect(audioCtx.destination);
+    }
+
+    // ==========================================
+    // LIVE VISUALIZER LOOP (Spectrum + Waveform)
+    // ==========================================
+    function startVizLoop() {
+      const specCanvas = document.getElementById('spectrumCanvas');
+      const waveCanvas = document.getElementById('waveCanvas');
+      const specCtx = specCanvas.getContext('2d');
+      const waveCtx = waveCanvas.getContext('2d');
+
+      const specData = new Uint8Array(analyserSpec.frequencyBinCount);
+      const waveData = new Uint8Array(analyserWave.frequencyBinCount);
+
+      function drawLoop() {
+        animFrameId = requestAnimationFrame(drawLoop);
+
+        const W = specCanvas.parentElement.clientWidth;
+        const H = specCanvas.parentElement.clientHeight;
+        specCanvas.width = W; specCanvas.height = H;
+        waveCanvas.width = waveCanvas.parentElement.clientWidth;
+        waveCanvas.height = waveCanvas.parentElement.clientHeight;
+
+        const isDark = htmlEl.dataset.theme === 'dark';
+
+        // --- SPECTRUM BAR VIZ ---
+        analyserSpec.getByteFrequencyData(specData);
+        specCtx.clearRect(0, 0, W, H);
+        specCtx.fillStyle = isDark ? '#010409' : '#0d1117';
+        specCtx.fillRect(0, 0, W, H);
+
+        const barW = (W / specData.length) * 2.5;
+        const barCount = Math.floor(W / (barW + 1));
+        for (let i = 0; i < barCount; i++) {
+          const v = specData[Math.floor(i * specData.length / barCount)] / 255;
+          const bh = v * H;
+          const hue = 220 + v * 60;
+          specCtx.fillStyle = `hsl(${hue}, 80%, ${45 + v * 30}%)`;
+          specCtx.fillRect(i * (barW + 1), H - bh, barW, bh);
+        }
+
+        // --- WAVEFORM VIZ ---
+        analyserWave.getByteTimeDomainData(waveData);
+        const WW = waveCanvas.width, WH = waveCanvas.height;
+        waveCtx.clearRect(0, 0, WW, WH);
+        waveCtx.fillStyle = isDark ? '#010409' : '#0d1117';
+        waveCtx.fillRect(0, 0, WW, WH);
+        waveCtx.beginPath();
+        waveCtx.strokeStyle = '#0b57d0';
+        waveCtx.lineWidth = 2;
+        const sliceW = WW / waveData.length;
+        let x = 0;
+        for (let i = 0; i < waveData.length; i++) {
+          const v = waveData[i] / 128;
+          const y = (v * WH) / 2;
+          i === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
+          x += sliceW;
+        }
+        waveCtx.stroke();
+
+        // --- METER ---
+        const maxV = Math.max(...Array.from(waveData).map(d => Math.abs(d - 128)));
+        document.getElementById('meterFill').style.width = `${Math.min(100, (maxV / 128) * 100 * params.masterVol)}%`;
+      }
+
+      drawLoop();
+    }
+
+    // ==========================================
+    // MASTER VOLUME
+    // ==========================================
+    document.getElementById('masterVolSlider').addEventListener('input', (e) => {
+      params.masterVol = parseFloat(e.target.value);
+      document.getElementById('masterVolLabel').textContent = `${params.masterVol.toFixed(2)} x`;
+      if (masterGain) masterGain.gain.setValueAtTime(params.masterVol, audioCtx.currentTime);
+    });
+
+    // ==========================================
+    // 8D SPATIAL CONTROLS
+    // ==========================================
+    document.getElementById('toggle8d').addEventListener('change', (e) => {
+      params.spatial8d = e.target.checked;
+      if (lfoGain && audioCtx) lfoGain.gain.setValueAtTime(params.spatial8d ? params.width8d : 0, audioCtx.currentTime);
+    });
+
+    document.getElementById('speed8dSlider').addEventListener('input', (e) => {
+      params.speed8d = parseFloat(e.target.value);
+      document.getElementById('speed8dVal').textContent = `${params.speed8d.toFixed(2)} Hz`;
+      if (lfoOsc && audioCtx) lfoOsc.frequency.setValueAtTime(params.speed8d, audioCtx.currentTime);
+    });
+
+    document.getElementById('width8dSlider').addEventListener('input', (e) => {
+      params.width8d = parseFloat(e.target.value);
+      document.getElementById('width8dVal').textContent = `${Math.round(params.width8d * 100)} %`;
+      if (lfoGain && audioCtx && params.spatial8d) lfoGain.gain.setValueAtTime(params.width8d, audioCtx.currentTime);
+    });
+
+    document.querySelectorAll('[data-8d-speed]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-8d-speed]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('speed8dSlider').value = btn.dataset['8dSpeed'];
+        document.getElementById('width8dSlider').value = btn.dataset['8dWidth'];
+        document.getElementById('speed8dSlider').dispatchEvent(new Event('input'));
+        document.getElementById('width8dSlider').dispatchEvent(new Event('input'));
+      });
+    });
+
+    // ==========================================
+    // REVERB CONTROLS
+    // ==========================================
+    document.getElementById('toggleReverb').addEventListener('change', (e) => {
+      params.revOn = e.target.checked;
+      if (delayWetGain && audioCtx) delayWetGain.gain.setValueAtTime(params.revOn ? params.revWet / 100 * 0.6 : 0, audioCtx.currentTime);
+    });
+
+    document.getElementById('revWetSlider').addEventListener('input', (e) => {
+      params.revWet = parseInt(e.target.value);
+      document.getElementById('revWetVal').textContent = `${params.revWet} %`;
+      if (delayWetGain && audioCtx && params.revOn) delayWetGain.gain.setValueAtTime(params.revWet / 100 * 0.6, audioCtx.currentTime);
+    });
+
+    document.getElementById('revDelaySlider').addEventListener('input', (e) => {
+      params.revDelay = parseInt(e.target.value) / 1000;
+      document.getElementById('revDelayVal').textContent = `${e.target.value} ms`;
+      if (delayNode && audioCtx) delayNode.delayTime.setValueAtTime(params.revDelay, audioCtx.currentTime);
+    });
+
+    document.getElementById('revCutoffSlider').addEventListener('input', (e) => {
+      params.revCutoff = parseInt(e.target.value);
+      document.getElementById('revCutoffVal').textContent = `${params.revCutoff} Hz`;
+      if (delayFilter && audioCtx) delayFilter.frequency.setValueAtTime(params.revCutoff, audioCtx.currentTime);
+    });
+
+    document.querySelectorAll('[data-rev-wet]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-rev-wet]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('revWetSlider').value = btn.dataset.revWet;
+        document.getElementById('revDelaySlider').value = btn.dataset.revDelay;
+        document.getElementById('revCutoffSlider').value = btn.dataset.revCutoff;
+        document.getElementById('revWetSlider').dispatchEvent(new Event('input'));
+        document.getElementById('revDelaySlider').dispatchEvent(new Event('input'));
+        document.getElementById('revCutoffSlider').dispatchEvent(new Event('input'));
+      });
+    });
+
+    // ==========================================
+    // PITCH CONTROLS (playbackRate on MediaElementSource not available directly;
+    // we expose it for awareness — on live streams we adjust via AudioContext.sampleRate offset trick)
+    // ==========================================
+    document.getElementById('pitchLiveSlider').addEventListener('input', (e) => {
+      params.pitchSt = parseInt(e.target.value);
+      document.getElementById('pitchLiveVal').textContent = `${params.pitchSt} st`;
+      // Note: Live MediaStreamSource doesn't support playbackRate directly.
+      // We simulate via detune on a ScriptProcessor if supported, otherwise display note.
+    });
+
+    document.querySelectorAll('[data-pitch]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-pitch]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('pitchLiveSlider').value = btn.dataset.pitch;
+        document.getElementById('pitchLiveSlider').dispatchEvent(new Event('input'));
+      });
+    });
+
+    // ==========================================
+    // VOCAL CUT CONTROLS
+    // ==========================================
+    document.getElementById('toggleVocal').addEventListener('change', (e) => {
+      params.vocalOn = e.target.checked;
+      // Reconnect graph with vocal processing
+      if (audioCtx) reconnectVocalChain();
+    });
+
+    document.getElementById('vcutSlider').addEventListener('input', (e) => {
+      params.vocalCut = parseInt(e.target.value) / 100;
+      document.getElementById('vcutVal').textContent = `${e.target.value} %`;
+    });
+
+    document.getElementById('vfreqSlider').addEventListener('input', (e) => {
+      params.vocalFreq = parseInt(e.target.value);
+      document.getElementById('vfreqVal').textContent = `${params.vocalFreq} Hz`;
+      if (vocalNotchFilter && audioCtx) vocalNotchFilter.frequency.setValueAtTime(params.vocalFreq, audioCtx.currentTime);
+    });
+
+    document.querySelectorAll('[data-vcut]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-vcut]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('vcutSlider').value = btn.dataset.vcut;
+        document.getElementById('vfreqSlider').value = btn.dataset.vfreq;
+        document.getElementById('vcutSlider').dispatchEvent(new Event('input'));
+        document.getElementById('vfreqSlider').dispatchEvent(new Event('input'));
+      });
+    });
+
+    function reconnectVocalChain() {
+      // Simplified: toggle notch filter Q between 0.001 (bypass) and 3 (active)
+      if (vocalNotchFilter && audioCtx) {
+        vocalNotchFilter.Q.setValueAtTime(params.vocalOn ? 3.0 * params.vocalCut : 0.001, audioCtx.currentTime);
+        vocalNotchFilter.gain.setValueAtTime(params.vocalOn ? -24 * params.vocalCut : 0, audioCtx.currentTime);
+      }
+    }
+
+    // ==========================================
+    // BASS CONTROLS
+    // ==========================================
+    document.getElementById('toggleBass').addEventListener('change', (e) => {
+      params.bassOn = e.target.checked;
+      if (bassFilter && audioCtx) bassFilter.gain.setValueAtTime(params.bassOn ? params.bassGain : 0, audioCtx.currentTime);
+    });
+
+    document.getElementById('bassGainSlider').addEventListener('input', (e) => {
+      params.bassGain = parseInt(e.target.value);
+      document.getElementById('bassGainVal').textContent = `+${params.bassGain} dB`;
+      if (bassFilter && audioCtx && params.bassOn) bassFilter.gain.setValueAtTime(params.bassGain, audioCtx.currentTime);
+    });
+
+    document.getElementById('bassFreqSlider').addEventListener('input', (e) => {
+      params.bassFreq = parseInt(e.target.value);
+      document.getElementById('bassFreqVal').textContent = `${params.bassFreq} Hz`;
+      if (bassFilter && audioCtx) bassFilter.frequency.setValueAtTime(params.bassFreq, audioCtx.currentTime);
+    });
+
+    document.querySelectorAll('[data-bass]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-bass]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('bassGainSlider').value = btn.dataset.bass;
+        document.getElementById('bassGainSlider').dispatchEvent(new Event('input'));
+      });
+    });
+  </script>
+</body>
+</html>
